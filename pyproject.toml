@@ -1,0 +1,109 @@
+[project]
+name = "orange"
+version = "0.1.0"
+description = "Cross-platform iOS file transfer and data management"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Orange Contributors"}
+]
+keywords = ["ios", "iphone", "ipad", "file-transfer", "backup", "imessage"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: File Sharing",
+    "Topic :: System :: Archiving :: Backup",
+]
+dependencies = [
+    "pymobiledevice3>=4.0.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+backup = [
+    "pycryptodome>=3.19.0",
+]
+conversion = [
+    "pillow>=10.0.0",
+    "pillow-heif>=0.13.0",
+]
+all = [
+    "orange[dev,backup,conversion]",
+]
+
+[project.scripts]
+orange = "orange.cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/orange-project/orange"
+Documentation = "https://github.com/orange-project/orange#readme"
+Repository = "https://github.com/orange-project/orange"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orange*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "-v --cov=orange --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.venv
+    | venv_linux
+    | build
+    | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+target-version = "py310"
+
+[tool.ruff.isort]
+known-first-party = ["orange"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+ignore_missing_imports = true
