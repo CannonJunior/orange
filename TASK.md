@@ -29,19 +29,32 @@
   - [x] Test suite (65 tests, 72% coverage)
   - Files: `orange/core/connection/`, `orange/cli/commands/device.py`
 
-### Phase 2: Backup & Restore (Planned)
-- [ ] Backup Engine
-  - [ ] Full backup creation
-  - [ ] Encrypted backup handling
-  - [ ] Backup parsing
-  - [ ] Selective restore
+### Phase 2: Backup & Restore (In Progress 2026-01-25)
+- [x] Backup Engine Core
+  - [x] `BackupManager` - Create/restore/list backups
+  - [x] `BackupReader` - Parse backup contents, extract files
+  - [x] `BackupInfo`, `BackupFile` models
+  - [x] CLI commands (`orange backup create/restore/list/info/browse/extract/delete`)
+  - [x] Test suite (42 tests)
+  - Files: `orange/core/backup/`, `orange/cli/commands/backup.py`
+- [ ] Remaining
+  - [ ] Encrypted backup decryption (password-protected extraction)
+  - [ ] Progress callbacks for large operations
+  - [ ] Incremental backup support
 
-### Phase 3: File Transfer (Planned)
-- [ ] Transfer Module
-  - [ ] Media transfer (photos, videos, music)
-  - [ ] Document transfer
-  - [ ] Format conversion
-  - [ ] Batch operations
+### Phase 3: File Transfer (In Progress 2026-01-25)
+- [x] Transfer Module Core
+  - [x] `DeviceBrowser` - Browse files on device via AFC
+  - [x] `FileManager` - Pull/push files and directories
+  - [x] `DataCategory` - Category-based selective transfer
+  - [x] Categories defined: photos, music, books, downloads, recordings, podcasts
+  - [x] CLI commands (`orange files browse/pull/push/pull-category/categories/size/info`)
+  - [x] Test suite (56 tests)
+  - Files: `orange/core/transfer/`, `orange/cli/commands/files.py`
+- [ ] Remaining
+  - [ ] Format conversion (HEIC->JPEG, FLAC->ALAC)
+  - [ ] Batch operations with filters
+  - [ ] Media library sync
 
 ### Phase 4: Data Export (Planned)
 - [ ] Data Extraction

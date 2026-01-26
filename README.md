@@ -7,21 +7,30 @@ Orange is an open-source tool for transferring messages, music, files, and data 
 ## Features
 
 - **Device Connection** - USB and Wi-Fi device detection with secure pairing ✅ *Available*
-- **Full Backup & Restore** - Create and restore encrypted iOS backups *(Planned)*
-- **File Transfer** - Bidirectional transfer of photos, videos, music, and documents *(Planned)*
+- **Full Backup & Restore** - Create and restore iOS backups ✅ *Available*
+- **Backup Browser** - Browse and extract files from backups ✅ *Available*
+- **File Transfer** - Bidirectional transfer of photos, videos, music, and documents ✅ *Available*
+- **Category Backup** - Selectively backup photos, music, books, or other categories ✅ *Available*
 - **Data Export** - Extract messages, contacts, calendar, and notes to PDF/CSV/JSON *(Planned)*
 - **Format Conversion** - Convert FLAC to ALAC, HEIC to JPEG, and more *(Planned)*
 - **Cross-Platform** - Works on macOS, Windows, and Linux
 
 ## Status
 
-**Current Phase:** Phase 1 Complete
+**Current Phase:** Phase 3 In Progress
 
 - [x] Literature Review - Completed
 - [x] Implementation Plan - Completed
-- [x] Phase 1: Connection Module - **Complete** (65 tests, 62% coverage)
-- [ ] Phase 2: Backup Engine
-- [ ] Phase 3: File Transfer
+- [x] Phase 1: Connection Module - **Complete** (65 tests)
+- [x] Phase 2: Backup Engine - **Complete** (42 tests)
+  - [x] Backup creation and restoration
+  - [x] Backup listing and info
+  - [x] File browsing and extraction
+  - [ ] Encrypted backup decryption
+- [x] Phase 3: File Transfer - **In Progress** (56 tests)
+  - [x] Category-based selective transfer (photos, music, books, etc.)
+  - [x] Direct file browsing and transfer via AFC
+  - [ ] Format conversion
 - [ ] Phase 4: Data Extraction
 - [ ] Phase 5: Format Conversion
 - [ ] Phase 6: Export & Distribution
@@ -80,14 +89,75 @@ orange device scan              # Discover Wi-Fi devices on network
 orange device list              # Shows both USB and Wi-Fi devices
 ```
 
-### Coming Soon (Phases 2-6)
+### Backup Management (Phase 2 - Available Now)
 
 ```bash
-# Create a backup
-orange backup create --output ./backups
+# Create a backup of your device
+orange backup create
 
+# Create backup to specific location
+orange backup create --output ./my-backups
+
+# List all backups
+orange backup list
+
+# Show backup details
+orange backup info ./backups/device-udid
+
+# Browse files in a backup
+orange backup browse ./backups/device-udid
+orange backup browse ./backups/device-udid --domain HomeDomain
+
+# Extract a file from backup
+orange backup extract ./backups/device-udid --domain HomeDomain -f "Library/SMS/sms.db" -o ./extracted
+
+# Restore a backup
+orange backup restore ./backups/device-udid
+
+# Delete a backup
+orange backup delete ./backups/device-udid
+```
+
+### File Transfer (Phase 3 - Available Now)
+
+Transfer files directly without creating a full backup using AFC (Apple File Conduit).
+
+```bash
+# List available data categories
+orange files categories
+
+# Browse files on device
+orange files browse
+orange files browse /DCIM
+orange files browse /DCIM/100APPLE --json
+
+# Pull (download) files from device
+orange files pull /DCIM/100APPLE ./photos
+
+# Pull entire category (photos, music, books, etc.)
+orange files pull-category photos ./my-photos
+orange files pull-category music ./my-music
+
+# Push (upload) files to device
+orange files push ./songs /iTunes_Control/Music
+
+# Show file info
+orange files info /DCIM/100APPLE/IMG_0001.HEIC
+
+# Check category size before downloading
+orange files size photos
+```
+
+**Note:** Some data categories (Messages, Contacts, Health, etc.) require backup access. Use `orange backup create` for these.
+
+### Coming Soon (Phases 4-6)
+
+```bash
 # Export messages to PDF
 orange export messages <backup-id> --format pdf --output messages.pdf
+
+# Format conversion
+orange convert ./photo.heic --format jpeg
 ```
 
 ## Requirements
