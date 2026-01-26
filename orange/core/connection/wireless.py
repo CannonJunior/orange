@@ -109,9 +109,10 @@ class WirelessDiscovery:
             timeout: How long to scan in seconds.
 
         Returns:
-            List of discovered devices.
+            List of discovered devices (deduplicated).
         """
         devices: list[WirelessDeviceInfo] = []
+        seen: set[str] = set()
 
         try:
             from pymobiledevice3.bonjour import browse_mobdev2
@@ -128,9 +129,18 @@ class WirelessDiscovery:
                 if service.addresses:
                     address = service.addresses[0].ip
 
+                hostname = service.host or service.instance or ""
+
+                # Deduplicate by hostname + address combination
+                unique_key = f"{hostname}|{address}"
+                if unique_key in seen:
+                    logger.debug(f"Skipping duplicate: {hostname} at {address}")
+                    continue
+                seen.add(unique_key)
+
                 device = WirelessDeviceInfo(
                     name=service.instance,
-                    hostname=service.host or service.instance,
+                    hostname=hostname,
                     address=address,
                     port=service.port or LOCKDOWN_PORT,
                 )

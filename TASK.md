@@ -66,6 +66,11 @@
 - pymobiledevice3 is recommended over libimobiledevice for Python-native development
 - iOS 17+ uses new XPC-based protocols requiring updated handling
 
+### From Phase 1 Implementation (2026-01-25)
+- `orange device scan` shows Device Name but Model/iOS/UDID columns are empty
+  - Deferred to backlog: see `BACKLOG-TODO-LIST.md`
+  - Attempted fix broke discovery entirely; reverted
+
 ---
 
 ## Notes

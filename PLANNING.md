@@ -1,8 +1,8 @@
 # Orange Project - Implementation Plan
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** January 25, 2026
-**Status:** Draft - Pending Approval
+**Status:** Phase 1 Complete - In Production
 
 ---
 
@@ -33,6 +33,35 @@ Orange is a cross-platform iOS file transfer and data management platform. This 
 **Primary Goal:** Create reusable modules for iOS device communication that can power multiple applications (file transfer, health data sync, backup management, etc.).
 
 **MVP Deliverable:** A working CLI tool that can detect iOS devices, establish trust, and retrieve basic device information.
+
+---
+
+## Implementation Progress
+
+### Phase 1: Connection Module - COMPLETE (2026-01-25)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Device Detection (USB) | ✅ Complete | `DeviceDetector`, `DeviceInfo` classes |
+| Device Pairing | ✅ Complete | `PairingManager`, trust workflow |
+| Wi-Fi Device Discovery | ✅ Complete | Standard Wi-Fi Sync protocol (no Developer Mode) |
+| Connection Management | ✅ Complete | `ConnectionManager`, `DeviceConnection` |
+| CLI Commands | ✅ Complete | `list`, `info`, `pair`, `unpair`, `ping`, `scan`, `wifi` |
+| Test Suite | ✅ Complete | 65 tests, 62% coverage |
+
+**Implementation Details:**
+- Wi-Fi Sync uses Apple's standard protocol (port 62078, Bonjour `_apple-mobdev2._tcp`)
+- Same protocol as iTunes/Finder - NO Developer Mode required
+- Requires one-time USB pairing, then wireless thereafter
+- CLI commands auto-select device when only one is connected (UDID optional)
+
+**Known Issues (Backlog):**
+- `orange device scan` shows Device Name but Model/iOS/UDID columns are empty
+- See `BACKLOG-TODO-LIST.md` for details
+
+### Phases 2-6: Planned
+
+See detailed specifications below.
 
 ---
 
@@ -135,6 +164,7 @@ orange/
 ├── CLAUDE.md                          # Project guidelines
 ├── PLANNING.md                        # This file
 ├── TASK.md                            # Task tracking
+├── BACKLOG-TODO-LIST.md               # Deferred tasks
 ├── ORANGE-CONTEXT-ENGINEERING-PROMPT.md
 ├── README.md                          # User documentation
 ├── pyproject.toml                     # Project configuration
@@ -156,12 +186,11 @@ orange/
 │   ├── core/                          # Core library modules
 │   │   ├── __init__.py
 │   │   │
-│   │   ├── connection/                # Phase 1
+│   │   ├── connection/                # Phase 1 ✅ COMPLETE
 │   │   │   ├── __init__.py
 │   │   │   ├── device.py              # Device detection & info
 │   │   │   ├── pairing.py             # Trust establishment
-│   │   │   ├── usb.py                 # USB connection handling
-│   │   │   ├── wifi.py                # Wi-Fi discovery
+│   │   │   ├── wireless.py            # Wi-Fi Sync discovery & connection
 │   │   │   └── manager.py             # Connection state management
 │   │   │
 │   │   ├── backup/                    # Phase 2
@@ -323,40 +352,37 @@ class ConnectionInterface(ABC):
 
 ---
 
-## Phase 1: Connection Module (MVP)
+## Phase 1: Connection Module (MVP) - COMPLETE ✅
 
 ### Objective
 
 Establish reliable device detection, pairing, and connection management as the foundation for all other modules.
 
-### Deliverables
+### Deliverables - All Complete
 
-1. **Device Detection** (`device.py`)
+1. **Device Detection** (`device.py`) ✅
    - Enumerate connected USB devices
    - Identify iOS devices by UDID
    - Retrieve basic device information
+   - Support partial UDID matching
 
-2. **Pairing System** (`pairing.py`)
+2. **Pairing System** (`pairing.py`) ✅
    - Check pairing status
    - Initiate pairing workflow
    - Handle "Trust This Computer" prompt
    - Manage pairing records
 
-3. **USB Connection** (`usb.py`)
-   - USB multiplexing wrapper
-   - Connection lifecycle management
-   - Error handling and recovery
+3. **Wi-Fi Discovery** (`wireless.py`) ✅
+   - Bonjour/mDNS device discovery via `_apple-mobdev2._tcp`
+   - Standard Wi-Fi Sync protocol (same as iTunes/Finder)
+   - NO Developer Mode required
+   - Enable/disable Wi-Fi connections on device
 
-4. **Wi-Fi Discovery** (`wifi.py`)
-   - Bonjour/mDNS device discovery
-   - Network connection establishment
-   - Wi-Fi sync detection
-
-5. **Connection Manager** (`manager.py`)
+4. **Connection Manager** (`manager.py`) ✅
    - Multi-device connection pool
    - Connection state tracking
-   - Automatic reconnection
-   - Event callbacks
+   - Context manager support
+   - Event callbacks for connect/disconnect
 
 ### Technical Specifications
 
@@ -600,24 +626,32 @@ class ConnectionManager:
         pass
 ```
 
-### CLI Commands (Phase 1)
+### CLI Commands (Phase 1) - All Implemented ✅
 
 ```bash
-# List connected devices
+# List connected devices (USB + Wi-Fi)
 orange device list
 orange device list --json
+orange device list --no-wifi
 
-# Show device details
-orange device info <udid>
+# Show device details (UDID optional if single device)
+orange device info [udid]
 orange device info --all
+orange device info --json
 
-# Pairing operations
-orange device pair <udid>
-orange device unpair <udid>
-orange device is-paired <udid>
+# Pairing operations (UDID optional if single device)
+orange device pair [udid]
+orange device unpair [udid]
+orange device is-paired [udid]
 
 # Connection testing
-orange device ping <udid>
+orange device ping [udid]
+
+# Wi-Fi Sync (standard Apple protocol, no Developer Mode)
+orange device wifi --enable [udid]   # Enable Wi-Fi (requires USB)
+orange device wifi --disable [udid]  # Disable Wi-Fi
+orange device wifi --status [udid]   # Check Wi-Fi status
+orange device scan                    # Discover Wi-Fi devices on network
 ```
 
 ### Test Cases

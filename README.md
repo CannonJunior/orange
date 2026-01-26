@@ -4,22 +4,22 @@
 
 Orange is an open-source tool for transferring messages, music, files, and data between iPhone/iPad and your computer - without iTunes or iCloud.
 
-## Features (Planned)
+## Features
 
-- **Device Connection** - USB and Wi-Fi device detection with secure pairing
-- **Full Backup & Restore** - Create and restore encrypted iOS backups
-- **File Transfer** - Bidirectional transfer of photos, videos, music, and documents
-- **Data Export** - Extract messages, contacts, calendar, and notes to PDF/CSV/JSON
-- **Format Conversion** - Convert FLAC to ALAC, HEIC to JPEG, and more
+- **Device Connection** - USB and Wi-Fi device detection with secure pairing ✅ *Available*
+- **Full Backup & Restore** - Create and restore encrypted iOS backups *(Planned)*
+- **File Transfer** - Bidirectional transfer of photos, videos, music, and documents *(Planned)*
+- **Data Export** - Extract messages, contacts, calendar, and notes to PDF/CSV/JSON *(Planned)*
+- **Format Conversion** - Convert FLAC to ALAC, HEIC to JPEG, and more *(Planned)*
 - **Cross-Platform** - Works on macOS, Windows, and Linux
 
 ## Status
 
-**Current Phase:** Planning & Research
+**Current Phase:** Phase 1 Complete
 
 - [x] Literature Review - Completed
 - [x] Implementation Plan - Completed
-- [ ] Phase 1: Connection Module - In Progress
+- [x] Phase 1: Connection Module - **Complete** (65 tests, 62% coverage)
 - [ ] Phase 2: Backup Engine
 - [ ] Phase 3: File Transfer
 - [ ] Phase 4: Data Extraction
@@ -48,18 +48,43 @@ orange --help
 
 ## Usage
 
+### Device Management (Phase 1 - Available Now)
+
 ```bash
-# List connected iOS devices
+# List connected iOS devices (USB + Wi-Fi)
 orange device list
+orange device list --json
 
-# Show device information
-orange device info <udid>
+# Show device information (UDID optional if single device)
+orange device info
+orange device info --all
 
-# Pair with a device
-orange device pair <udid>
+# Pair with a device (one-time, requires USB)
+orange device pair
 
+# Test connection
+orange device ping
+```
+
+### Wi-Fi Sync Setup (No Developer Mode Required)
+
+Orange uses Apple's standard Wi-Fi Sync protocol - the same one used by iTunes and Finder.
+
+```bash
+# One-time setup (device connected via USB):
+orange device pair              # Pair with device
+orange device wifi --enable     # Enable Wi-Fi connections
+
+# After setup, disconnect USB and use wirelessly:
+orange device scan              # Discover Wi-Fi devices on network
+orange device list              # Shows both USB and Wi-Fi devices
+```
+
+### Coming Soon (Phases 2-6)
+
+```bash
 # Create a backup
-orange backup create <udid> --output ./backups
+orange backup create --output ./backups
 
 # Export messages to PDF
 orange export messages <backup-id> --format pdf --output messages.pdf
