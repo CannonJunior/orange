@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Cross-platform iOS file transfer and data management"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = {text = "MINE"}
 authors = [
     {name = "Orange Contributors"}
 ]
@@ -13,7 +13,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: MINE",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
