@@ -132,7 +132,7 @@ class TestBackupManager:
         result = manager.delete_backup(tmp_path / "nonexistent")
         assert result is False
 
-    @patch("orange.core.backup.manager.create_using_usbmux")
+    @patch("orange.core.backup.manager.create_lockdown_client")
     @patch("orange.core.backup.manager.Mobilebackup2Service")
     def test_create_backup_success(
         self,
@@ -176,7 +176,7 @@ class TestBackupManager:
         assert backup_info.device_name == "Test iPhone"
         mock_service_instance.backup.assert_called_once()
 
-    @patch("orange.core.backup.manager.create_using_usbmux")
+    @patch("orange.core.backup.manager.create_lockdown_client")
     def test_create_backup_device_not_found(
         self,
         mock_create_usbmux: MagicMock,

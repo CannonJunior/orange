@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 from typing import Callable, Iterator, Optional
 
-from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.services.afc import AfcService
 
 from orange.core.transfer.browser import DeviceBrowser, FileInfo
@@ -22,6 +21,7 @@ from orange.core.transfer.categories import (
     CATEGORIES,
     get_category,
 )
+from orange.core.connection import create_lockdown_client
 from orange.exceptions import DeviceNotFoundError, TransferError
 
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class FileManager:
         """Ensure AFC connection is established."""
         if self._afc is None:
             try:
-                self._lockdown = create_using_usbmux(serial=self._udid)
+                self._lockdown = create_lockdown_client(self._udid)
                 self._afc = AfcService(self._lockdown)
                 logger.debug("AFC connection established")
             except Exception as e:

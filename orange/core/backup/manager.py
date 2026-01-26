@@ -13,10 +13,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
 
-from pymobiledevice3.lockdown import create_using_usbmux, LockdownClient
+from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.services.mobilebackup2 import Mobilebackup2Service
 
 from orange.core.backup.models import BackupInfo, BackupProgress, BackupStatus
+from orange.core.connection import create_lockdown_client
 from orange.exceptions import (
     BackupError,
     DeviceNotFoundError,
@@ -101,8 +102,8 @@ class BackupManager:
         logger.info(f"Creating {'full' if full else 'incremental'} backup to {dest}")
 
         try:
-            # Connect to device
-            lockdown = create_using_usbmux(serial=udid)
+            # Connect to device (USB or Wi-Fi)
+            lockdown = create_lockdown_client(udid)
             device_udid = lockdown.udid
             device_name = lockdown.all_values.get("DeviceName", "Unknown")
 
@@ -176,8 +177,8 @@ class BackupManager:
         logger.info(f"Restoring backup from {backup_dir}")
 
         try:
-            # Connect to device
-            lockdown = create_using_usbmux(serial=udid)
+            # Connect to device (USB or Wi-Fi)
+            lockdown = create_lockdown_client(udid)
             device_name = lockdown.all_values.get("DeviceName", "Unknown")
 
             logger.info(f"Restoring to {device_name}")

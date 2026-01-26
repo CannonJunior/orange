@@ -28,7 +28,8 @@ check_root() {
 start_usbmuxd() {
     echo -n "Checking usbmuxd... "
 
-    if systemctl is-active --quiet usbmuxd 2>/dev/null; then
+    # Check if usbmuxd process is running (either via systemd or manually)
+    if pgrep -x usbmuxd > /dev/null 2>&1; then
         echo -e "${GREEN}already running${NC}"
         return 0
     fi
@@ -37,11 +38,19 @@ start_usbmuxd() {
 
     # Check if we can use sudo
     if sudo -n true 2>/dev/null; then
-        # Can sudo without password
-        echo -n "  Starting usbmuxd... "
-        if sudo systemctl start usbmuxd 2>/dev/null; then
+        # Start usbmuxd directly with -f flag to prevent auto-exit
+        # The -f flag keeps it in foreground but we background it
+        echo -n "  Starting usbmuxd (persistent mode)... "
+
+        # Kill any existing instance first
+        sudo pkill -x usbmuxd 2>/dev/null || true
+        sleep 0.5
+
+        # Start usbmuxd without auto-exit (no --exit flag, use -f in background)
+        # Using systemd but overriding to not auto-exit
+        if sudo usbmuxd -v 2>/dev/null; then
             sleep 1
-            if systemctl is-active --quiet usbmuxd; then
+            if pgrep -x usbmuxd > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ started${NC}"
                 return 0
             fi
@@ -51,11 +60,12 @@ start_usbmuxd() {
 
     # Provide manual instructions
     echo ""
-    echo -e "  ${YELLOW}Please start usbmuxd manually:${NC}"
-    echo "    sudo systemctl start usbmuxd"
+    echo -e "  ${YELLOW}Please start usbmuxd manually (persistent mode):${NC}"
+    echo "    sudo usbmuxd"
     echo ""
-    echo "  Or run usbmuxd in foreground for debugging:"
-    echo "    sudo usbmuxd -f -v"
+    echo "  Note: The default systemd service auto-exits when no devices are"
+    echo "  connected. Running 'sudo usbmuxd' directly keeps it running for"
+    echo "  Wi-Fi device access."
     echo ""
     return 1
 }
@@ -113,6 +123,44 @@ activate_venv() {
     fi
 }
 
+# Function to check Wi-Fi sync status
+check_wifi_sync() {
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if [ -f "$SCRIPT_DIR/venv_linux/bin/python" ]; then
+        echo ""
+        echo -e "${YELLOW}Wi-Fi Sync Status:${NC}"
+
+        "$SCRIPT_DIR/venv_linux/bin/python" - << 'PYTHON_SCRIPT'
+from pymobiledevice3.usbmux import list_devices
+from pymobiledevice3.lockdown import create_using_usbmux
+
+try:
+    devices = list_devices()
+    if not devices:
+        print("  No USB devices - cannot check Wi-Fi sync status")
+        print("  Connect device via USB to enable Wi-Fi sync")
+    else:
+        for d in devices:
+            try:
+                lockdown = create_using_usbmux(serial=d.serial)
+                wifi_enabled = lockdown.get_value(
+                    key="EnableWifiConnections",
+                    domain="com.apple.mobile.wireless_lockdown"
+                )
+                status = "ENABLED" if wifi_enabled else "DISABLED"
+                print(f"  Device {d.serial[:12]}...: Wi-Fi sync {status}")
+
+                if not wifi_enabled:
+                    print(f"    Run: orange device wifi --enable")
+            except Exception as e:
+                print(f"  Device {d.serial[:12]}...: Could not check ({e})")
+except Exception as e:
+    print(f"  Could not check Wi-Fi status: {e}")
+PYTHON_SCRIPT
+    fi
+}
+
 # Function to show usage
 show_usage() {
     echo ""
@@ -120,9 +168,13 @@ show_usage() {
     echo ""
     echo "Quick start:"
     echo "  source venv_linux/bin/activate"
-    echo "  orange device list"
-    echo "  orange files browse"
-    echo "  orange files categories"
+    echo "  orange device list          # List USB devices"
+    echo "  orange device scan          # Find Wi-Fi devices"
+    echo "  orange files browse         # Browse device files"
+    echo ""
+    echo "Wi-Fi setup (one-time, requires USB):"
+    echo "  orange device pair          # Pair with device"
+    echo "  orange device wifi --enable # Enable Wi-Fi sync"
     echo ""
 }
 
@@ -135,6 +187,9 @@ main() {
 
     # Check for devices
     check_devices
+
+    # Check Wi-Fi sync status if device connected
+    check_wifi_sync
 
     # Check virtual environment
     activate_venv

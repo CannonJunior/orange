@@ -94,66 +94,173 @@ class WirelessDiscovery:
             print(f"Found: {device.name} at {device.address}")
     """
 
+    # Class-level cache for discovered devices (persists between calls)
+    _device_cache: dict[str, WirelessDeviceInfo] = {}
+    _cache_timeout: float = 60.0  # Cache devices for 60 seconds
+    _persistent_cache_loaded: bool = False
+
     def __init__(self) -> None:
         """Initialize wireless discovery."""
+        self._load_persistent_cache()
         logger.debug("WirelessDiscovery initialized")
 
-    def discover(self, timeout: float = 5.0) -> list[WirelessDeviceInfo]:
+    def _load_persistent_cache(self) -> None:
+        """Load known Wi-Fi devices from disk cache."""
+        if WirelessDiscovery._persistent_cache_loaded:
+            return
+
+        try:
+            import json
+            from pathlib import Path
+
+            cache_file = Path.home() / ".orange" / "wifi_devices.json"
+            if cache_file.exists():
+                with open(cache_file, "r") as f:
+                    data = json.load(f)
+
+                for device_data in data.get("devices", []):
+                    device = WirelessDeviceInfo(
+                        name=device_data.get("name", "Unknown"),
+                        hostname=device_data.get("hostname", ""),
+                        address=device_data.get("address", ""),
+                        port=device_data.get("port", LOCKDOWN_PORT),
+                        udid=device_data.get("udid"),
+                    )
+                    if device.address:
+                        key = device.hostname or device.address
+                        WirelessDiscovery._device_cache[key] = device
+                        logger.debug(f"Loaded cached Wi-Fi device: {device.name} at {device.address}")
+
+                WirelessDiscovery._persistent_cache_loaded = True
+        except Exception as e:
+            logger.debug(f"Could not load persistent cache: {e}")
+
+    def _save_persistent_cache(self) -> None:
+        """Save known Wi-Fi devices to disk cache."""
+        try:
+            import json
+            from pathlib import Path
+
+            cache_dir = Path.home() / ".orange"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cache_file = cache_dir / "wifi_devices.json"
+
+            devices = []
+            for device in WirelessDiscovery._device_cache.values():
+                devices.append({
+                    "name": device.name,
+                    "hostname": device.hostname,
+                    "address": device.address,
+                    "port": device.port,
+                    "udid": device.udid,
+                })
+
+            with open(cache_file, "w") as f:
+                json.dump({"devices": devices}, f, indent=2)
+
+            logger.debug(f"Saved {len(devices)} Wi-Fi device(s) to cache")
+        except Exception as e:
+            logger.debug(f"Could not save persistent cache: {e}")
+
+    def discover(
+        self,
+        timeout: float = 5.0,
+        retries: int = 3,
+        use_cache: bool = True,
+    ) -> list[WirelessDeviceInfo]:
         """
         Discover iOS devices on the network.
 
         Uses Bonjour to find devices advertising the _apple-mobdev2._tcp
-        service (standard Wi-Fi sync).
+        service (standard Wi-Fi sync). Retries multiple times to handle
+        intermittent mDNS responses.
 
         Args:
-            timeout: How long to scan in seconds.
+            timeout: How long to scan per attempt in seconds.
+            retries: Number of discovery attempts (mDNS can be unreliable).
+            use_cache: Whether to include cached devices from recent scans.
 
         Returns:
             List of discovered devices (deduplicated).
         """
-        devices: list[WirelessDeviceInfo] = []
-        seen: set[str] = set()
+        devices: dict[str, WirelessDeviceInfo] = {}
+
+        # Start with cached devices if enabled
+        if use_cache:
+            devices.update(WirelessDiscovery._device_cache)
 
         try:
             from pymobiledevice3.bonjour import browse_mobdev2
 
-            logger.debug(f"Scanning for Wi-Fi sync devices ({timeout}s)...")
+            # Retry discovery multiple times (mDNS is unreliable)
+            for attempt in range(retries):
+                logger.debug(f"Wi-Fi scan attempt {attempt + 1}/{retries} ({timeout}s)...")
 
-            # browse_mobdev2 is async, so we need to run it with asyncio
-            services = asyncio.run(browse_mobdev2(timeout=timeout))
+                try:
+                    services = asyncio.run(browse_mobdev2(timeout=timeout))
 
-            for service in services:
-                # ServiceInstance has: instance, host, port, addresses, properties
-                # addresses is a list of Address objects with ip and iface attributes
-                address = ""
-                if service.addresses:
-                    address = service.addresses[0].ip
+                    for service in services:
+                        # Get IPv4 address (prefer over IPv6)
+                        address = ""
+                        if service.addresses:
+                            # Prefer IPv4 addresses
+                            for addr in service.addresses:
+                                if addr.ip and ":" not in addr.ip:  # IPv4
+                                    address = addr.ip
+                                    break
+                            # Fall back to first address if no IPv4
+                            if not address:
+                                address = service.addresses[0].ip
 
-                hostname = service.host or service.instance or ""
+                        if not address:
+                            continue
 
-                # Deduplicate by hostname + address combination
-                unique_key = f"{hostname}|{address}"
-                if unique_key in seen:
-                    logger.debug(f"Skipping duplicate: {hostname} at {address}")
-                    continue
-                seen.add(unique_key)
+                        hostname = service.host or service.instance or ""
 
-                device = WirelessDeviceInfo(
-                    name=service.instance,
-                    hostname=hostname,
-                    address=address,
-                    port=service.port or LOCKDOWN_PORT,
-                )
-                devices.append(device)
-                logger.debug(f"Found: {device.name} at {device.address}:{device.port}")
+                        # Use hostname as unique key
+                        unique_key = hostname or address
+
+                        device = WirelessDeviceInfo(
+                            name=service.instance,
+                            hostname=hostname,
+                            address=address,
+                            port=service.port or LOCKDOWN_PORT,
+                        )
+                        devices[unique_key] = device
+                        logger.debug(f"Found: {device.name} at {device.address}:{device.port}")
+
+                    # If we found devices, we can stop retrying
+                    if devices:
+                        break
+
+                except Exception as e:
+                    logger.debug(f"Scan attempt {attempt + 1} error: {e}")
+
+                # Small delay between retries
+                if attempt < retries - 1:
+                    import time
+                    time.sleep(0.5)
 
         except ImportError:
             logger.warning("Bonjour discovery not available")
         except Exception as e:
             logger.error(f"Discovery error: {e}")
 
-        logger.info(f"Discovered {len(devices)} wireless device(s)")
-        return devices
+        # Update cache with found devices
+        WirelessDiscovery._device_cache.update(devices)
+
+        # Save to persistent cache if we found new devices
+        if devices:
+            self._save_persistent_cache()
+
+        result = list(devices.values())
+        logger.info(f"Discovered {len(result)} wireless device(s)")
+        return result
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the device cache."""
+        cls._device_cache.clear()
 
     def discover_with_info(self, timeout: float = 5.0) -> list[WirelessDeviceInfo]:
         """

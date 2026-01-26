@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional, Any
 
-from pymobiledevice3.lockdown import create_using_usbmux
+from orange.core.connection import create_lockdown_client
 from pymobiledevice3.services.afc import AfcService
 
 from orange.exceptions import DeviceNotFoundError, TransferError
@@ -112,7 +112,7 @@ class DeviceBrowser:
         """Ensure AFC connection is established."""
         if self._afc is None:
             try:
-                self._lockdown = create_using_usbmux(serial=self._udid)
+                self._lockdown = create_lockdown_client(self._udid)
                 self._afc = AfcService(self._lockdown)
                 logger.debug("AFC connection established")
             except Exception as e:
@@ -173,6 +173,13 @@ class DeviceBrowser:
             result.sort(key=lambda x: (not x.is_directory, x.name.lower()))
             return result
 
+        except ConnectionAbortedError as e:
+            # This often happens with Wi-Fi connections on iOS 17+
+            raise TransferError(
+                f"Connection lost while listing {path}. "
+                "If using Wi-Fi on iOS 17+, file operations require USB connection or a tunnel. "
+                "Try: python -m pymobiledevice3 lockdown start-tunnel"
+            ) from e
         except Exception as e:
             raise TransferError(f"Failed to list directory {path}: {e}") from e
 

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
-from pymobiledevice3.lockdown import create_using_usbmux, LockdownClient
+from pymobiledevice3.lockdown import create_using_usbmux, create_using_tcp, LockdownClient
 from pymobiledevice3.usbmux import list_devices as usbmux_list_devices
 from pymobiledevice3.exceptions import (
     MuxException,
@@ -26,6 +26,9 @@ from pymobiledevice3.exceptions import (
 )
 
 from orange.exceptions import DeviceNotFoundError, ConnectionError
+
+# Standard Wi-Fi sync port
+LOCKDOWN_PORT = 62078
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +219,8 @@ class DeviceDetector:
         """Internal method to refresh the device cache."""
         self._device_cache.clear()
 
+        # First, try USB devices via usbmuxd
         try:
-            # Get list of connected devices from usbmux
             mux_devices = usbmux_list_devices()
 
             for mux_device in mux_devices:
@@ -233,16 +236,157 @@ class DeviceDetector:
         except (FileNotFoundError, OSError) as e:
             # Reason: usbmuxd socket not found - daemon not running or no device
             logger.debug(f"usbmuxd not available: {e}")
-            # Return empty list rather than raising error
 
         except MuxException as e:
-            logger.error(f"Failed to list devices: {e}")
-            raise ConnectionError(
-                "Failed to communicate with usbmuxd",
-                str(e)
-            )
+            logger.debug(f"usbmuxd error (may be normal if no USB devices): {e}")
+
+        # Then, try Wi-Fi devices via Bonjour if enabled
+        if self._include_wifi:
+            self._discover_wifi_devices()
 
         logger.debug(f"Found {len(self._device_cache)} device(s)")
+
+    def _discover_wifi_devices(self) -> None:
+        """Discover Wi-Fi devices via Bonjour and add to cache."""
+        try:
+            from orange.core.connection.wireless import WirelessDiscovery
+
+            discovery = WirelessDiscovery()
+            # Use more retries for reliable discovery (mDNS is intermittent)
+            wifi_devices = discovery.discover(timeout=5.0, retries=4, use_cache=True)
+
+            for wifi_dev in wifi_devices:
+                try:
+                    address = wifi_dev.address
+                    # Use standard lockdownd port (62078) instead of advertised port
+                    # Bonjour often advertises a different port that doesn't work
+                    port = LOCKDOWN_PORT
+
+                    if not address:
+                        continue
+
+                    device_info = self._get_wifi_device_info(address, port)
+                    if device_info and device_info.udid not in self._device_cache:
+                        self._device_cache[device_info.udid] = device_info
+                        logger.debug(f"Found Wi-Fi device: {device_info.name} at {address}")
+
+                except Exception as e:
+                    logger.debug(f"Could not get info for Wi-Fi device: {e}")
+
+        except ImportError:
+            logger.debug("Bonjour discovery not available")
+        except Exception as e:
+            logger.debug(f"Wi-Fi discovery error: {e}")
+
+    def _get_wifi_device_info(self, address: str, port: int) -> Optional["DeviceInfo"]:
+        """Get device info for a Wi-Fi device."""
+        # Try connecting with available pairing records
+        pair_records = self._get_available_pairing_records()
+
+        # Try each pairing record until one works
+        for udid, pair_record in pair_records.items():
+            try:
+                lockdown = create_using_tcp(
+                    hostname=address,
+                    port=port,
+                    autopair=False,
+                    pair_record=pair_record,
+                )
+                all_values = lockdown.all_values
+
+                device_udid = all_values.get("UniqueDeviceID", "")
+                if not device_udid:
+                    continue
+
+                return DeviceInfo(
+                    udid=device_udid,
+                    name=all_values.get("DeviceName", "Unknown"),
+                    model=all_values.get("DeviceClass", "Unknown"),
+                    model_number=all_values.get("ProductType", "Unknown"),
+                    ios_version=all_values.get("ProductVersion", "Unknown"),
+                    build_version=all_values.get("BuildVersion", "Unknown"),
+                    serial_number=all_values.get("SerialNumber", "Unknown"),
+                    connection_type=ConnectionType.WIFI,
+                    state=DeviceState.PAIRED,
+                    wifi_address=address,
+                    battery_level=self._get_battery_level(all_values),
+                    battery_charging=all_values.get("BatteryIsCharging"),
+                    paired=True,
+                    extra={
+                        "hardware_model": all_values.get("HardwareModel"),
+                        "wifi_port": port,
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Pairing record {udid[:8]}... failed for {address}:{port}: {e}")
+                continue
+
+        # If no pairing record worked, try without one (for unpaired discovery)
+        try:
+            lockdown = create_using_tcp(
+                hostname=address,
+                port=port,
+                autopair=False,
+            )
+            all_values = lockdown.all_values
+
+            device_udid = all_values.get("UniqueDeviceID", "")
+            if not device_udid:
+                return None
+
+            return DeviceInfo(
+                udid=device_udid,
+                name=all_values.get("DeviceName", "Unknown"),
+                model=all_values.get("DeviceClass", "Unknown"),
+                model_number=all_values.get("ProductType", "Unknown"),
+                ios_version=all_values.get("ProductVersion", "Unknown"),
+                build_version=all_values.get("BuildVersion", "Unknown"),
+                serial_number=all_values.get("SerialNumber", "Unknown"),
+                connection_type=ConnectionType.WIFI,
+                state=DeviceState.PAIRED,
+                wifi_address=address,
+                battery_level=self._get_battery_level(all_values),
+                battery_charging=all_values.get("BatteryIsCharging"),
+                paired=True,
+                extra={
+                    "hardware_model": all_values.get("HardwareModel"),
+                    "wifi_port": port,
+                },
+            )
+        except Exception as e:
+            logger.debug(f"Could not connect to Wi-Fi device at {address}:{port}: {e}")
+            return None
+
+    def _get_available_pairing_records(self) -> dict[str, dict]:
+        """Load all available pairing records from the system."""
+        import plistlib
+        from pathlib import Path
+
+        records: dict[str, dict] = {}
+
+        # Standard pairing record locations
+        pairing_dirs = [
+            Path("/var/lib/lockdown"),  # Linux
+            Path.home() / "Library/Lockdown",  # macOS
+        ]
+
+        for pairing_dir in pairing_dirs:
+            if not pairing_dir.exists():
+                continue
+
+            for plist_file in pairing_dir.glob("*.plist"):
+                try:
+                    # Extract UDID from filename (filename is {udid}.plist)
+                    udid = plist_file.stem
+                    if len(udid) < 20:  # Skip non-UDID files like SystemConfiguration.plist
+                        continue
+
+                    with open(plist_file, "rb") as f:
+                        records[udid] = plistlib.load(f)
+                except Exception as e:
+                    logger.debug(f"Could not load pairing record {plist_file}: {e}")
+
+        return records
 
     def _get_device_info(self, mux_device: Any) -> Optional[DeviceInfo]:
         """

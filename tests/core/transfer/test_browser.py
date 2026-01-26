@@ -99,23 +99,23 @@ class TestDeviceBrowser:
         """Create a mock lockdown client."""
         return Mock()
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
-    def test_ensure_connected(self, mock_afc_class, mock_create_usbmux) -> None:
+    def test_ensure_connected(self, mock_afc_class, mock_create_lockdown) -> None:
         """_ensure_connected should establish connection."""
         mock_lockdown = Mock()
         mock_afc = Mock()
-        mock_create_usbmux.return_value = mock_lockdown
+        mock_create_lockdown.return_value = mock_lockdown
         mock_afc_class.return_value = mock_afc
 
         browser = DeviceBrowser("test-udid")
         result = browser._ensure_connected()
 
-        mock_create_usbmux.assert_called_once_with(serial="test-udid")
+        mock_create_lockdown.assert_called_once_with("test-udid")
         mock_afc_class.assert_called_once_with(mock_lockdown)
         assert result == mock_afc
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     def test_ensure_connected_device_not_found(self, mock_create_usbmux) -> None:
         """_ensure_connected should raise DeviceNotFoundError on failure."""
         mock_create_usbmux.side_effect = Exception("No device")
@@ -124,7 +124,7 @@ class TestDeviceBrowser:
         with pytest.raises(DeviceNotFoundError):
             browser._ensure_connected()
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_list_directory(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """list_directory should return FileInfo list."""
@@ -145,7 +145,7 @@ class TestDeviceBrowser:
         assert len(result) == 2  # Excludes . and ..
         assert all(isinstance(item, FileInfo) for item in result)
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_list_directory_error(self, mock_afc_class, mock_create_usbmux, mock_lockdown) -> None:
         """list_directory should raise TransferError on failure."""
@@ -158,7 +158,7 @@ class TestDeviceBrowser:
         with pytest.raises(TransferError):
             browser.list_directory("/protected")
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_exists(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """exists should return True for existing paths."""
@@ -169,7 +169,7 @@ class TestDeviceBrowser:
         browser = DeviceBrowser("test-udid")
         assert browser.exists("/DCIM") is True
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_exists_not_found(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """exists should return False for non-existent paths."""
@@ -180,7 +180,7 @@ class TestDeviceBrowser:
         browser = DeviceBrowser("test-udid")
         assert browser.exists("/nonexistent") is False
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_is_directory(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """is_directory should return True for directories."""
@@ -191,7 +191,7 @@ class TestDeviceBrowser:
         browser = DeviceBrowser("test-udid")
         assert browser.is_directory("/DCIM") is True
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_stat(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """stat should return FileInfo for a path."""
@@ -210,7 +210,7 @@ class TestDeviceBrowser:
         assert info.size == 2048
         assert info.is_directory is False
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_stat_directory(self, mock_afc_class, mock_create_usbmux, mock_afc, mock_lockdown) -> None:
         """stat should recognize directories."""
@@ -226,7 +226,7 @@ class TestDeviceBrowser:
 
         assert info.is_directory is True
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_context_manager(self, mock_afc_class, mock_create_usbmux, mock_lockdown) -> None:
         """DeviceBrowser should work as context manager."""
@@ -239,7 +239,7 @@ class TestDeviceBrowser:
 
         mock_afc.close.assert_called_once()
 
-    @patch("orange.core.transfer.browser.create_using_usbmux")
+    @patch("orange.core.transfer.browser.create_lockdown_client")
     @patch("orange.core.transfer.browser.AfcService")
     def test_walk(self, mock_afc_class, mock_create_usbmux, mock_lockdown) -> None:
         """walk should yield directory contents recursively."""

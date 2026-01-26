@@ -80,22 +80,22 @@ class TestFileManager:
         mock.close = Mock()
         return mock
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
-    def test_ensure_connected(self, mock_afc_class, mock_create_usbmux) -> None:
+    def test_ensure_connected(self, mock_afc_class, mock_create_lockdown) -> None:
         """_ensure_connected should establish connection."""
         mock_lockdown = Mock()
         mock_afc = Mock()
-        mock_create_usbmux.return_value = mock_lockdown
+        mock_create_lockdown.return_value = mock_lockdown
         mock_afc_class.return_value = mock_afc
 
         manager = FileManager("test-udid")
         result = manager._ensure_connected()
 
-        mock_create_usbmux.assert_called_once_with(serial="test-udid")
+        mock_create_lockdown.assert_called_once_with("test-udid")
         assert result == mock_afc
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     def test_ensure_connected_device_not_found(self, mock_create_usbmux) -> None:
         """_ensure_connected should raise DeviceNotFoundError."""
         mock_create_usbmux.side_effect = Exception("No device")
@@ -104,7 +104,7 @@ class TestFileManager:
         with pytest.raises(DeviceNotFoundError):
             manager._ensure_connected()
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_pull_file(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -136,7 +136,7 @@ class TestFileManager:
             mock_afc.pull.assert_called_once()
             assert result.total_files == 1
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_pull_nonexistent_path(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -156,7 +156,7 @@ class TestFileManager:
         with pytest.raises(TransferError, match="does not exist"):
             manager.pull("/nonexistent", Path("/tmp/dest"))
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_push_file(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -183,7 +183,7 @@ class TestFileManager:
         finally:
             os.unlink(temp_path)
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_push_nonexistent_local(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -202,7 +202,7 @@ class TestFileManager:
         with pytest.raises(TransferError, match="does not exist"):
             manager.push(Path("/nonexistent/file.txt"), "/remote")
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_pull_category_unknown(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -216,7 +216,7 @@ class TestFileManager:
         with pytest.raises(TransferError, match="Unknown category"):
             manager.pull_category("nonexistent", Path("/tmp/dest"))
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_pull_category_backup_only(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -230,7 +230,7 @@ class TestFileManager:
         with pytest.raises(TransferError, match="requires backup access"):
             manager.pull_category("messages", Path("/tmp/dest"))
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_pull_category_photos(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -256,7 +256,7 @@ class TestFileManager:
             # Should complete without error
             assert result.total_files == 0
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_context_manager(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -276,7 +276,7 @@ class TestFileManager:
         mock_afc.close.assert_called()
         mock_browser.close.assert_called()
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_list_category_files(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:
@@ -300,7 +300,7 @@ class TestFileManager:
 
         assert len(files) >= 1
 
-    @patch("orange.core.transfer.manager.create_using_usbmux")
+    @patch("orange.core.transfer.manager.create_lockdown_client")
     @patch("orange.core.transfer.manager.AfcService")
     @patch("orange.core.transfer.manager.DeviceBrowser")
     def test_get_category_size(self, mock_browser_class, mock_afc_class, mock_create_usbmux) -> None:

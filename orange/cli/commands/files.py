@@ -38,27 +38,37 @@ def get_console(ctx: click.Context) -> Console:
     return Console()
 
 
-def get_device_udid(udid: Optional[str]) -> str:
-    """Get device UDID, auto-selecting if only one device connected."""
+def get_device_udid(udid: Optional[str], require_usb: bool = False) -> str:
+    """Get device UDID, auto-selecting if only one device connected.
+
+    Args:
+        udid: Specific device UDID, or None to auto-select.
+        require_usb: If True, warn about Wi-Fi limitations for file operations.
+    """
     if udid:
         return udid
 
     try:
-        detector = DeviceDetector()
+        # Include Wi-Fi devices in detection
+        detector = DeviceDetector(include_wifi=True)
         devices = detector.list_devices()
-    except Exception as e:
-        raise DeviceNotFoundError(
-            "No iOS device connected. Please connect a device via USB and try again."
-        ) from e
+    except Exception:
+        raise click.ClickException(
+            "No iOS device connected.\n"
+            "Please connect a device via USB and try again.\n"
+            "Run './start.sh' to ensure usbmuxd is running."
+        )
 
     if not devices:
-        raise DeviceNotFoundError(
-            "No iOS device connected. Please connect a device via USB and try again."
+        raise click.ClickException(
+            "No iOS device connected.\n"
+            "Please connect a device via USB and try again.\n"
+            "Use 'orange device list' to check device status."
         )
 
     if len(devices) > 1:
-        raise click.UsageError(
-            "Multiple devices connected. Please specify UDID.\n"
+        raise click.ClickException(
+            "Multiple devices connected. Please specify --udid.\n"
             "Use 'orange device list' to see connected devices."
         )
 
