@@ -56,6 +56,67 @@
   - [ ] Batch operations with filters
   - [ ] Media library sync
 
+### Phase 3.5: Streaming Content Playback (2026-01-26) - BLOCKED
+- [x] **Netflix/Streaming Content Investigation** - COMPLETE
+  - [x] Investigate how Netflix stores downloaded content on iOS
+    - Stored in app sandbox: `/var/mobile/Containers/Data/Application/[UUID]/`
+  - [x] Determine file locations and formats used
+    - HLS segments encrypted with AES-128 CBCS
+  - [x] Analyze DRM/encryption mechanisms (FairPlay, Widevine)
+    - Apple FairPlay DRM with hardware Secure Enclave
+  - [x] Research legal and technical feasibility
+    - **NOT FEASIBLE** - Multiple technical and legal barriers
+  - [x] Document findings in `docs/streaming-content-research.md`
+- [x] **Implementation Assessment** - WON'T IMPLEMENT
+  - Reason: DRM protection at content, OS, and hardware levels
+  - Legal: DMCA prohibits circumvention
+  - Technical: Secure Enclave encryption cannot be bypassed
+  - Alternative: Use native Netflix in Linux browser
+
+**Key Findings:**
+1. Netflix uses Apple FairPlay DRM (hardware-enforced)
+2. AirPlay mirroring shows black screen for DRM content
+3. iOS blocks screen recording for streaming apps
+4. HDCP enforcement prevents capture via HDMI
+5. No legitimate technical path exists
+
+**macOS Apple Silicon Investigation (2026-01-26) - VIABLE PATH FOUND:**
+- Apple Silicon Macs (M1/M2/M3/M4) can run iOS apps natively
+- PlayCover allows sideloading Netflix iOS app (bypasses App Store block)
+- Requires decrypted IPA file (from decrypt.day or jailbroken device)
+- **LIMITATION:** Downloads don't transfer - must re-download on Mac
+- Netflix iOS app on Mac CAN download content for offline viewing
+
+### Phase 3.6: iOS App Management for macOS (COMPLETE - 2026-01-27)
+- [x] **App Discovery & Listing**
+  - [x] Add `orange apps list` command to show installed iOS apps
+  - [x] Display bundle IDs, versions, sizes, source (App Store/Sideloaded)
+  - [x] Add `orange apps search` command for finding apps
+  - [x] Add `orange apps info` command for detailed app info
+  - [x] Identify extractable apps (User apps only)
+  - Files: `orange/core/apps/`, `orange/cli/commands/apps.py`
+- [x] **IPA Extraction**
+  - [x] Add `orange apps extract <bundle_id>` command
+  - [x] Extract IPA from connected device via HouseArrest
+  - [x] Warn user about FairPlay encryption
+  - [x] Provide guidance for decryption options
+- [x] **PlayCover Integration Documentation**
+  - [x] Document PlayCover setup workflow
+  - [x] Document decrypted IPA sources (decrypt.day)
+  - [x] Document frida-ios-dump for jailbroken devices
+  - [x] Add `orange apps playcover-guide` command
+  - Files: `docs/playcover-integration.md`
+- [ ] **Optional: Jailbreak Support** (Deferred)
+  - [ ] Integration with frida-ios-dump for IPA decryption
+  - [ ] Only for jailbroken devices
+  - [ ] Requires user to have Frida installed
+
+**Prerequisites for Netflix on Mac:**
+1. Apple Silicon Mac (M1/M2/M3/M4)
+2. PlayCover installed (playcover.io)
+3. Decrypted Netflix IPA (from decrypt.day or extracted+decrypted)
+4. Netflix subscription
+
 ### Phase 4: Data Export (Planned)
 - [ ] Data Extraction
   - [ ] Message export
