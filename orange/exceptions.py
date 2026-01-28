@@ -183,3 +183,22 @@ class DatabaseError(DataExtractionError):
         if reason:
             details += f", Reason: {reason}"
         super().__init__("Database error", details)
+
+
+# Export errors
+class ExportError(OrangeError):
+    """Base class for data export errors."""
+
+    pass
+
+
+class ExportFormatError(ExportError):
+    """Unsupported or invalid export format."""
+
+    def __init__(self, format_name: str, supported_formats: list[str]):
+        self.format_name = format_name
+        self.supported_formats = supported_formats
+        super().__init__(
+            "Unsupported export format",
+            f"'{format_name}' not supported. Use one of: {', '.join(supported_formats)}"
+        )

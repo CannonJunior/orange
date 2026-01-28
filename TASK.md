@@ -117,11 +117,39 @@
 3. Decrypted Netflix IPA (from decrypt.day or extracted+decrypted)
 4. Netflix subscription
 
-### Phase 4: Data Export (Planned)
-- [ ] Data Extraction
-  - [ ] Message export
-  - [ ] Contact export
-  - [ ] Calendar/Notes export
+### Phase 4: Data Export (COMPLETE - 2026-01-27)
+- [x] **Export Module Core**
+  - [x] Data models (`Message`, `Contact`, `CalendarEvent`, `Note`)
+  - [x] `MessageExporter` - Extract SMS/iMessage from backups
+    - Parse sms.db SQLite database
+    - Export to JSON, CSV, HTML (chat-style)
+    - Filter by contact, date range
+    - Get conversation statistics
+  - [x] `ContactExporter` - Extract contacts from backups
+    - Parse AddressBook.sqlitedb database
+    - Export to JSON, CSV, VCF (vCard 3.0)
+    - Include phones, emails, addresses
+  - [x] `CalendarExporter` - Extract calendar events from backups
+    - Parse Calendar.sqlitedb database
+    - Export to JSON, CSV, ICS (iCalendar)
+    - Support all-day events
+  - [x] `NoteExporter` - Extract notes from backups
+    - Parse Notes database (iOS 9+ and legacy formats)
+    - Export to JSON, CSV, HTML
+    - Handle pinned/locked notes
+  - Files: `orange/core/export/`
+- [x] **CLI Commands**
+  - [x] `orange export messages` - Export SMS/iMessage
+  - [x] `orange export conversations` - List message conversations
+  - [x] `orange export contacts` - Export contacts to VCF/JSON/CSV
+  - [x] `orange export calendar` - Export calendar to ICS/JSON/CSV
+  - [x] `orange export calendars` - List calendars
+  - [x] `orange export notes` - Export notes to HTML/JSON/CSV
+  - [x] `orange export folders` - List note folders
+  - [x] `orange export summary` - Show exportable data summary
+  - Files: `orange/cli/commands/export.py`
+- [x] **Test Suite** (104 tests)
+  - Files: `tests/core/export/`
 
 ### Phase 5: Distribution (Planned)
 - [ ] Packaging
