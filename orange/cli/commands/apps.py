@@ -375,6 +375,191 @@ def extract_cmd(
         raise SystemExit(1)
 
 
+@apps.command("decrypt")
+@click.argument("bundle_id")
+@click.argument("output", type=click.Path())
+@click.option("--udid", "-u", help="Device UDID (optional if single device).")
+@click.option(
+    "--host",
+    help="Frida remote host (e.g., localhost:27042). For SSH tunnel connections.",
+)
+@click.option(
+    "--ssh-host",
+    default="localhost",
+    help="SSH host for file transfer (default: localhost).",
+)
+@click.option(
+    "--ssh-port",
+    type=int,
+    default=22,
+    help="SSH port (default: 22).",
+)
+@click.option(
+    "--ssh-user",
+    default="root",
+    help="SSH username (default: root).",
+)
+@click.option(
+    "--ssh-password",
+    default="alpine",
+    help="SSH password (default: alpine).",
+)
+@click.option(
+    "--no-frameworks",
+    is_flag=True,
+    help="Skip framework decryption.",
+)
+@click.pass_context
+def decrypt_cmd(
+    ctx: click.Context,
+    bundle_id: str,
+    output: str,
+    udid: Optional[str],
+    host: Optional[str],
+    ssh_host: str,
+    ssh_port: int,
+    ssh_user: str,
+    ssh_password: str,
+    no_frameworks: bool,
+) -> None:
+    """
+    Decrypt an app from a jailbroken device.
+
+    This command extracts a decrypted IPA from a jailbroken iOS device
+    using Frida dynamic instrumentation. The resulting IPA can be used
+    with PlayCover on Apple Silicon Macs.
+
+    REQUIREMENTS:
+    - Jailbroken iOS device (unc0ver, checkra1n, Dopamine, etc.)
+    - Frida server installed on device (via Cydia/Sileo)
+    - SSH access to device
+    - Target app must be installed
+
+    SETUP:
+    1. Install Frida on your computer: pip install frida-tools
+    2. Install Frida server on device from Cydia/Sileo
+    3. Set up SSH tunnel (optional): ssh -L 27042:localhost:27042 root@<device-ip>
+
+    Examples:
+
+        Decrypt Netflix (USB connection):
+        $ orange apps decrypt com.netflix.Netflix ./Netflix-decrypted.ipa
+
+        With SSH tunnel:
+        $ orange apps decrypt com.netflix.Netflix ./Netflix.ipa --host localhost:27042
+
+        Specify device:
+        $ orange apps decrypt com.netflix.Netflix ./Netflix.ipa --udid 00008030-...
+    """
+    console = get_console(ctx)
+
+    try:
+        from orange.core.apps.decrypt import (
+            FridaClient,
+            AppDumper,
+            DumpProgress,
+            FridaNotInstalledError,
+            DecryptionError,
+        )
+    except ImportError as e:
+        console.print(
+            "[red]Error:[/red] Frida tools not installed.\n"
+            "Install with: pip install frida-tools"
+        )
+        raise SystemExit(1)
+
+    output_path = Path(output)
+
+    try:
+        # Show requirements panel
+        console.print(
+            Panel(
+                "[bold]Requirements for IPA decryption:[/bold]\n\n"
+                "1. Jailbroken iOS device with Frida server\n"
+                "2. SSH access to device\n"
+                "3. Target app installed on device\n\n"
+                "[dim]Tip: Set up SSH tunnel with:[/dim]\n"
+                "[cyan]ssh -L 27042:localhost:27042 root@<device-ip>[/cyan]",
+                title="Decryption Setup",
+                border_style="blue",
+            )
+        )
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Connecting to device...", total=None)
+
+            def on_progress(p: DumpProgress):
+                progress.update(task, description=p.message)
+
+            # Connect to Frida
+            with FridaClient(udid=udid, host=host) as client:
+                progress.update(task, description="Connected. Initializing dumper...")
+
+                dumper = AppDumper(
+                    frida_client=client,
+                    ssh_host=ssh_host,
+                    ssh_port=ssh_port,
+                    ssh_user=ssh_user,
+                    ssh_password=ssh_password,
+                )
+
+                result = dumper.dump(
+                    bundle_id=bundle_id,
+                    output_path=output_path,
+                    include_frameworks=not no_frameworks,
+                    progress_callback=on_progress,
+                )
+
+        console.print()
+        console.print(f"[green]Successfully decrypted![/green]")
+        console.print()
+        console.print(f"[bold]Output:[/bold] {result.ipa_path}")
+        console.print(f"[bold]Decrypted Size:[/bold] {result.decrypted_size:,} bytes")
+        console.print(f"[bold]Elapsed:[/bold] {result.elapsed_seconds:.1f} seconds")
+
+        if result.frameworks_dumped:
+            console.print(f"[bold]Frameworks:[/bold] {len(result.frameworks_dumped)}")
+
+        console.print()
+        console.print(
+            Panel(
+                "You can now use this IPA with PlayCover:\n\n"
+                "1. Open PlayCover\n"
+                "2. Drag the IPA into the window\n"
+                "3. Click the app icon to launch",
+                title="Next Steps",
+                border_style="green",
+            )
+        )
+
+    except FridaNotInstalledError:
+        console.print(
+            "[red]Error:[/red] Frida tools not installed.\n"
+            "Install with: [cyan]pip install frida-tools[/cyan]"
+        )
+        raise SystemExit(1)
+
+    except DecryptionError as e:
+        console.print(f"[red]Decryption error:[/red] {e}")
+        console.print()
+        console.print(
+            "[dim]Troubleshooting tips:[/dim]\n"
+            "- Ensure Frida server is running on device\n"
+            "- Check SSH connection: ssh root@<device-ip>\n"
+            "- Verify app is installed: orange apps search <name>\n"
+            "- Try restarting Frida server on device"
+        )
+        raise SystemExit(1)
+
+    except OrangeError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise SystemExit(1)
+
+
 @apps.command("playcover-guide")
 @click.pass_context
 def playcover_guide_cmd(ctx: click.Context) -> None:

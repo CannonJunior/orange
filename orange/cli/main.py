@@ -21,7 +21,7 @@ from rich.logging import RichHandler
 
 from orange import __version__
 from orange.config import Config, get_config
-from orange.cli.commands import device, backup, files, apps, export
+from orange.cli.commands import device, backup, files, apps, export, context
 
 # Rich console for pretty output
 console = Console()
@@ -108,6 +108,7 @@ cli.add_command(backup.backup)
 cli.add_command(files.files)
 cli.add_command(apps.apps)
 cli.add_command(export.export)
+cli.add_command(context.context)
 
 
 # Convenience aliases

@@ -19,6 +19,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
 from orange.core.backup import BackupManager, BackupReader, BackupInfo
 from orange.core.connection import DeviceDetector
+from orange.core.context import get_context
 from orange.exceptions import (
     BackupError,
     DeviceNotFoundError,
@@ -103,11 +104,24 @@ def create_cmd(
                 progress_callback=progress_callback,
             )
 
+        # Save to context for use by other commands
+        ctx_manager = get_context()
+        ctx_manager.set_last_backup(
+            path=backup_info.path,
+            device_udid=backup_info.device_udid,
+            device_name=backup_info.device_name,
+            ios_version=backup_info.ios_version,
+            is_encrypted=backup_info.is_encrypted,
+            size_bytes=backup_info.size_bytes,
+        )
+
         console.print()
         console.print(f"[green]✓ Backup created successfully[/green]")
         console.print(f"  Device: {backup_info.device_name}")
         console.print(f"  Size: {backup_info.size_human}")
         console.print(f"  Path: {backup_info.path}")
+        console.print()
+        console.print("[dim]Tip: Use 'orange backup browse' without arguments to browse this backup[/dim]")
 
     except DeviceNotFoundError:
         console.print("[red]✗ Device not found[/red]")
@@ -298,7 +312,7 @@ def list_cmd(
 
 
 @backup.command("info")
-@click.argument("backup_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("backup_path", type=click.Path(exists=True, path_type=Path), required=False)
 @click.option(
     "--json", "as_json",
     is_flag=True,
@@ -307,11 +321,27 @@ def list_cmd(
 @click.pass_context
 def info_cmd(
     ctx: click.Context,
-    backup_path: Path,
+    backup_path: Optional[Path],
     as_json: bool,
 ) -> None:
-    """Show detailed information about a backup."""
+    """Show detailed information about a backup.
+
+    If BACKUP_PATH is not specified, uses the most recent backup from context.
+    """
     console = get_console(ctx)
+
+    # Use context if no backup path specified
+    if backup_path is None:
+        ctx_manager = get_context()
+        last_backup = ctx_manager.get_last_backup()
+        if last_backup and last_backup.exists():
+            backup_path = last_backup.path_obj
+            if not as_json:
+                console.print(f"[dim]Using last backup: {backup_path}[/dim]\n")
+        else:
+            console.print("[red]No backup path specified and no recent backup found.[/red]")
+            console.print("Run 'orange backup create' first, or specify a backup path.")
+            sys.exit(1)
 
     try:
         manager = BackupManager()
@@ -350,7 +380,7 @@ def info_cmd(
 
 
 @backup.command("browse")
-@click.argument("backup_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("backup_path", type=click.Path(exists=True, path_type=Path), required=False)
 @click.option(
     "--domain", "-d",
     help="Filter by domain (e.g., HomeDomain, CameraRollDomain).",
@@ -368,13 +398,29 @@ def info_cmd(
 @click.pass_context
 def browse_cmd(
     ctx: click.Context,
-    backup_path: Path,
+    backup_path: Optional[Path],
     domain: Optional[str],
     path_filter: Optional[str],
     as_json: bool,
 ) -> None:
-    """Browse files in a backup."""
+    """Browse files in a backup.
+
+    If BACKUP_PATH is not specified, uses the most recent backup from context.
+    """
     console = get_console(ctx)
+
+    # Use context if no backup path specified
+    if backup_path is None:
+        ctx_manager = get_context()
+        last_backup = ctx_manager.get_last_backup()
+        if last_backup and last_backup.exists():
+            backup_path = last_backup.path_obj
+            if not as_json:
+                console.print(f"[dim]Using last backup: {backup_path}[/dim]\n")
+        else:
+            console.print("[red]No backup path specified and no recent backup found.[/red]")
+            console.print("Run 'orange backup create' first, or specify a backup path.")
+            sys.exit(1)
 
     try:
         reader = BackupReader(backup_path)
@@ -438,8 +484,13 @@ def browse_cmd(
 
 
 @backup.command("extract")
-@click.argument("backup_path", type=click.Path(exists=True, path_type=Path))
 @click.argument("file_path")
+@click.option(
+    "--backup", "-b",
+    "backup_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to backup. Uses last backup from context if not specified.",
+)
 @click.option(
     "--output", "-o",
     type=click.Path(path_type=Path),
@@ -457,8 +508,8 @@ def browse_cmd(
 @click.pass_context
 def extract_cmd(
     ctx: click.Context,
-    backup_path: Path,
     file_path: str,
+    backup_path: Optional[Path],
     output: Path,
     domain: Optional[str],
     password: Optional[str],
@@ -466,8 +517,27 @@ def extract_cmd(
     """Extract a file from a backup.
 
     FILE_PATH can be a file ID or a relative path (if --domain is specified).
+    Uses the most recent backup from context unless --backup is specified.
+
+    Examples:
+
+        orange backup extract IMG_0260.JPG --domain CameraRollDomain
+
+        orange backup extract abc123def --output ~/Desktop/
     """
     console = get_console(ctx)
+
+    # Use context if no backup path specified
+    if backup_path is None:
+        ctx_manager = get_context()
+        last_backup = ctx_manager.get_last_backup()
+        if last_backup and last_backup.exists():
+            backup_path = last_backup.path_obj
+            console.print(f"[dim]Using last backup: {backup_path}[/dim]\n")
+        else:
+            console.print("[red]No backup path specified and no recent backup found.[/red]")
+            console.print("Run 'orange backup create' first, or specify --backup path.")
+            sys.exit(1)
 
     try:
         reader = BackupReader(backup_path, password=password)

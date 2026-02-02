@@ -15,6 +15,7 @@ from rich.console import Console
 
 from orange.constants import DEFAULT_BACKUP_DIR, DEFAULT_EXPORT_DIR
 from orange.core.backup.reader import BackupReader
+from orange.core.context import get_context
 from orange.core.export import (
     MessageExporter,
     ContactExporter,
@@ -52,7 +53,7 @@ def _find_backup(backup_path: Optional[str] = None) -> Path:
     Find a backup to use for export.
 
     Args:
-        backup_path: Explicit path to backup, or None to use most recent.
+        backup_path: Explicit path to backup, or None to use from context or most recent.
 
     Returns:
         Path to the backup directory.
@@ -66,7 +67,14 @@ def _find_backup(backup_path: Optional[str] = None) -> Path:
             raise click.ClickException(f"Backup not found: {backup_path}")
         return path
 
-    # Look for backups in default location
+    # Check context for last backup
+    ctx_manager = get_context()
+    last_backup = ctx_manager.get_last_backup()
+    if last_backup and last_backup.exists():
+        info(f"Using backup from context: {last_backup.path}")
+        return last_backup.path_obj
+
+    # Fall back to looking for backups in default location
     backup_dir = DEFAULT_BACKUP_DIR
     if not backup_dir.exists():
         raise click.ClickException(

@@ -381,17 +381,31 @@ class BackupReader:
             modified_time = None
 
             if file_blob:
-                # The file column contains a binary plist
+                # The file column contains a binary plist (NSKeyedArchiver format)
                 try:
                     file_data = plistlib.loads(file_blob)
-                    size = file_data.get("Size", 0)
-                    mode = file_data.get("Mode", 0)
-                    flags = file_data.get("Flags", 0)
 
-                    # Parse modification time
-                    mtime = file_data.get("LastModified")
-                    if mtime:
-                        modified_time = datetime.fromtimestamp(mtime)
+                    # Handle NSKeyedArchiver format where data is in $objects[1]
+                    if "$objects" in file_data and len(file_data["$objects"]) > 1:
+                        metadata = file_data["$objects"][1]
+                        if isinstance(metadata, dict):
+                            size = metadata.get("Size", 0)
+                            mode = metadata.get("Mode", 0)
+                            flags = metadata.get("Flags", 0)
+
+                            # Parse modification time
+                            mtime = metadata.get("LastModified")
+                            if mtime:
+                                modified_time = datetime.fromtimestamp(mtime)
+                    else:
+                        # Fallback for older backup formats
+                        size = file_data.get("Size", 0)
+                        mode = file_data.get("Mode", 0)
+                        flags = file_data.get("Flags", 0)
+
+                        mtime = file_data.get("LastModified")
+                        if mtime:
+                            modified_time = datetime.fromtimestamp(mtime)
 
                 except Exception:
                     pass

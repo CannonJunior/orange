@@ -7,6 +7,10 @@ python-dotenv>=1.0.0
 # Backup support
 pycryptodome>=3.19.0
 
+# IPA Decryption (jailbreak support)
+frida-tools>=12.0.0
+paramiko>=3.0.0
+
 # Development dependencies
 pytest>=7.4.0
 pytest-cov>=4.1.0

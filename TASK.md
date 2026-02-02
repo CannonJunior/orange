@@ -117,6 +117,63 @@
 3. Decrypted Netflix IPA (from decrypt.day or extracted+decrypted)
 4. Netflix subscription
 
+### Phase 3.7: IPA Decryption Module (In Progress - 2026-02-01)
+- [x] **Research & Planning** - COMPLETE
+  - [x] Research FairPlay DRM technical details
+  - [x] Evaluate decryption approaches (Frida, on-device, hybrid)
+  - [x] Identify reference implementations (frida-ios-dump, bagbak, etc.)
+  - [x] Document architecture design and class structure
+  - [x] Create 6-week implementation timeline
+  - Output: `docs/ipa-decryption-implementation-plan.md`
+- [x] **Phase 1: Foundation** - COMPLETE (2026-02-01)
+  - [x] Add `frida-tools` and `paramiko` dependencies
+  - [x] Implement `FridaClient` class for device connection
+  - [x] Implement custom exceptions (`DecryptionError`, `FridaConnectionError`, etc.)
+  - [x] Create basic CLI structure for decrypt command
+  - [x] Write unit tests with mocked Frida (72 tests passing)
+  - Files: `orange/core/apps/decrypt/frida_client.py`, `exceptions.py`
+- [x] **Phase 2: Mach-O Handling** - COMPLETE (2026-02-01)
+  - [x] Implement `MachOParser` for reading encryption info
+  - [x] Implement `cryptid` patching (set to 0)
+  - [x] Handle FAT (universal) binaries
+  - [x] Support ARM64 and ARM64e architectures
+  - [x] Comprehensive test coverage
+  - Files: `orange/core/apps/decrypt/macho.py`
+- [x] **Phase 3: Memory Dumping** - COMPLETE (2026-02-01)
+  - [x] Create Frida injection script for memory reading
+  - [x] Implement `AppDumper._dump_binary()`
+  - [x] Handle encrypted section extraction
+  - [x] Support app extensions and frameworks enumeration
+  - Files: `orange/core/apps/decrypt/dumper.py`
+- [x] **Phase 4: IPA Reconstruction** - COMPLETE (2026-02-01)
+  - [x] Implement `IPABuilder` class
+  - [x] Integrate SSH file transfer via paramiko
+  - [x] Handle binary replacement in app bundle
+  - [x] Create proper IPA ZIP structure
+  - Files: `orange/core/apps/decrypt/ipa_builder.py`
+- [x] **Phase 5: CLI & Documentation** - COMPLETE (2026-02-01)
+  - [x] Implement `orange apps decrypt` command
+  - [x] Add progress visualization (Rich)
+  - [x] Error handling and user-friendly messages
+  - [x] Comprehensive help text and examples
+  - Files: `orange/cli/commands/apps.py`
+- [ ] **Phase 6: Netflix Testing** (Pending)
+  - [ ] Test decryption with Netflix IPA on real jailbroken device
+  - [ ] Verify decrypted IPA works with PlayCover
+  - [ ] Test across iOS versions (15, 16, 17, 18)
+  - [ ] Performance optimization
+
+**Requirements:**
+- Jailbroken iOS device (unc0ver, checkra1n, Dopamine, etc.)
+- Frida server installed on device
+- SSH access to device
+- Target app must be installed
+
+**Key Reference Repositories:**
+- [frida-ios-dump](https://github.com/AloneMonkey/frida-ios-dump) - Primary reference
+- [bagbak](https://github.com/ChiChou/bagbak) - Extensions handling
+- [fouldecrypt](https://github.com/NyaMisty/fouldecrypt) - On-device alternative
+
 ### Phase 4: Data Export (COMPLETE - 2026-01-27)
 - [x] **Export Module Core**
   - [x] Data models (`Message`, `Contact`, `CalendarEvent`, `Note`)
@@ -150,6 +207,41 @@
   - Files: `orange/cli/commands/export.py`
 - [x] **Test Suite** (104 tests)
   - Files: `tests/core/export/`
+
+### Phase 4.5: Context Management (COMPLETE - 2026-02-01)
+- [x] **Context System Implementation**
+  - [x] Create `OrangeContext` class for persistent state management
+  - [x] Store last backup, recent backups, current device, last export
+  - [x] Context file at `~/.orange/context.json`
+  - [x] 21 unit tests
+  - Files: `orange/core/context.py`, `tests/core/test_context.py`
+- [x] **CLI Integration**
+  - [x] `orange context show` - Display current context
+  - [x] `orange context backups` - List recent backups
+  - [x] `orange context clear` - Clear all context
+  - [x] `orange context path` - Show context file location
+  - Files: `orange/cli/commands/context.py`
+- [x] **Command Updates**
+  - [x] `orange backup create` - Saves backup to context after creation
+  - [x] `orange backup browse` - Uses last backup from context if no path specified
+  - [x] `orange backup info` - Uses last backup from context if no path specified
+  - [x] `orange backup extract` - Uses last backup from context if no path specified
+  - [x] `orange export *` - Uses last backup from context via `_find_backup()`
+
+**Usage Example:**
+```bash
+# Create a backup (automatically saved to context)
+orange backup create
+
+# Browse backup without specifying path
+orange backup browse
+
+# Export messages (uses backup from context)
+orange export messages -o messages.json
+
+# View current context
+orange context show
+```
 
 ### Phase 5: Distribution (Planned)
 - [ ] Packaging
